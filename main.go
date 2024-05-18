@@ -1,6 +1,13 @@
 package main
 
 import (
+	"chadrss/api/route"
+	"chadrss/config"
+	"chadrss/database"
+	"chadrss/frontend"
+	"fmt"
+	"log"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -8,6 +15,9 @@ import (
 
 func main() {
 	log.Println("🚀 Starting server...")
+
+	// Connect to the database
+	database.ConnectDB()
 
 	// Create a new Fiber instance
 	app := fiber.New()
