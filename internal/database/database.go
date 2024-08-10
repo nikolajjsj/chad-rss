@@ -1,6 +1,7 @@
 package database
 
 import (
+	database "chad-rss/internal/database/sqlc"
 	"context"
 	"database/sql"
 	"fmt"
@@ -9,6 +10,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -22,6 +26,9 @@ type Service interface {
 	// Close terminates the database connection.
 	// It returns an error if the connection cannot be closed.
 	Close() error
+
+	// Query returns the database queries.
+	Query() *database.Queries
 }
 
 type service struct {
@@ -46,10 +53,34 @@ func New() Service {
 		log.Fatal(err)
 	}
 
+	// Migrate the database
+	migrateDB(db)
+
 	dbInstance = &service{
 		db: db,
 	}
 	return dbInstance
+}
+
+func migrateDB(db *sql.DB) {
+	// Migration logic goes here
+
+	// Create a driver instance for golang-migrate
+	driver, err := sqlite.WithInstance(db, &sqlite.Config{})
+	if err != nil {
+		log.Fatalf("error creating driver instance: %v", err)
+	}
+
+	// Create a new migration instance
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://internal/database/migrations",
+		"sqlite",
+		driver,
+	)
+	if err != nil {
+		log.Fatalf("error creating migration instance: %v", err)
+	}
+	m.Up()
 }
 
 // Health checks the health of the database connection by pinging the database.
@@ -110,4 +141,9 @@ func (s *service) Health() map[string]string {
 func (s *service) Close() error {
 	log.Printf("Disconnected from database: %s", dburl)
 	return s.db.Close()
+}
+
+// Query returns the database queries.
+func (s *service) Query() *database.Queries {
+	return database.New(s.db)
 }
