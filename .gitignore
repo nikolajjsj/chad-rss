@@ -31,3 +31,10 @@ main
 
 # MacOS
 .DS_Store
+
+# Generated files
+output.css
+./cmd/web/assets/css/output.css
+
+# sqlite database
+*.db
