@@ -20,8 +20,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/go-shiori/go-readability"
 	"github.com/google/uuid"
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/mmcdole/gofeed"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -47,6 +49,20 @@ func (s *Server) RegisterRoutes() http.Handler {
 		// Seek, verify and validate JWT tokens
 		r.Use(jwtauth.Verifier(tokenAuth))
 		r.Use(jwtauth.Authenticator(tokenAuth))
+
+		r.Get("/health", s.healthHandler)
+
+		r.Get("/feeds/sidebar", s.FeedsSidebarHandler)
+		r.Get("/feeds/{slug}/sidebar", s.ArticlesSidebarHandler)
+
+		r.Get("/feeds/create", templ.Handler(web.FeedsCreate()).ServeHTTP)
+		r.Post("/feeds/create", s.FeedCreateHandler)
+		r.Get("/feeds/{slug}", s.FeedHandler)
+		r.Get("/feeds/{slug}/articles/{id}", s.FeedHandler)
+		r.Post("/feeds/{slug}/sync", s.FeedSyncHandler)
+
+		r.Get("/articles/{slug}", s.ArticleHandler)
+		r.Get("/articles/{slug}/content", s.ArticleContentHandler)
 	})
 
 	// Public routes
@@ -155,6 +171,61 @@ func (s *Server) Signin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("HX-Redirect", "/")
 }
 
+func (s *Server) FeedsSidebarHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserIDFromContext(w, r)
+	if err != nil {
+		return
+	}
+
+	feeds, err := s.db.Query().GetFeeds(context.Background(), userID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	web.SidebarFeeds(feeds).Render(context.Background(), w)
+}
+
+func (s *Server) FeedHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserIDFromContext(w, r)
+	if err != nil {
+		return
+	}
+	feedID := chi.URLParam(r, "slug")
+	articleID := chi.URLParam(r, "id")
+
+	feed, err := s.db.Query().GetFeedByID(context.Background(), database.GetFeedByIDParams{
+		Nid: feedID,
+		ID:  userID,
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	articles, err := s.db.Query().GetUserFeedArticles(context.Background(), database.GetUserFeedArticlesParams{
+		ID:  userID,
+		Nid: feedID,
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if articleID != "" {
+		web.Feed(web.FeedProps{
+			Feed:      feed,
+			Articles:  articles,
+			ArticleID: articleID,
+		}).Render(context.Background(), w)
+	} else {
+		web.Feed(web.FeedProps{
+			Feed:     feed,
+			Articles: articles,
+		}).Render(context.Background(), w)
+	}
+
+}
 
 func (s *Server) FeedCreateHandler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
@@ -228,3 +299,111 @@ func (s *Server) FeedCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("HX-Redirect", fmt.Sprintf("/feeds/%s", feedID))
 }
 
+func (s *Server) FeedSyncHandler(w http.ResponseWriter, r *http.Request) {
+	feedID := chi.URLParam(r, "slug")
+
+	userID, err := getUserIDFromContext(w, r)
+	if err != nil {
+		return
+	}
+
+	feedDB, err := s.db.Query().GetFeedByID(context.Background(), database.GetFeedByIDParams{
+		Nid: feedID,
+		ID:  userID,
+	})
+
+	fp := gofeed.NewParser()
+	f, err := fp.ParseURL(feedDB.Url)
+	if err != nil {
+		log.Println("Parse feed error: ", err)
+		return
+	}
+
+	for _, item := range f.Items {
+		// TODO: move this to a separate function
+		if item.GUID == "" || item.Link == "" || item.Title == "" {
+			continue
+		}
+
+		media := ""
+		if item.Image != nil && item.Image.URL != "" {
+			media = item.Image.URL
+		} else {
+			for i := range item.Links {
+				if strings.Contains(item.Links[i], "image/jpeg") || strings.Contains(item.Links[i], "image/jpg") || strings.Contains(item.Links[i], "image/png") {
+					media = item.Links[i]
+					break
+				}
+			}
+		}
+
+		nid, err := utils.GenerateNID()
+		if err != nil {
+			log.Println("Generate NID error: ", err)
+			continue
+		}
+
+		if _, err = s.db.Query().CreateFeedArticles(context.Background(), database.CreateFeedArticlesParams{
+			Nid:         nid,
+			RssID:       item.GUID,
+			Url:         item.Link,
+			Title:       item.Title,
+			Summary:     sql.NullString{String: item.Description, Valid: item.Description != ""},
+			Content:     sql.NullString{String: item.Content, Valid: true},
+			Authors:     sql.NullString{String: item.Author.Name, Valid: item.Author.Name != ""},
+			Media:       sql.NullString{String: media, Valid: media != ""},
+			PublishedAt: sql.NullTime{Time: *item.PublishedParsed, Valid: item.PublishedParsed != nil},
+			FeedID:      feedDB.ID,
+		}); err != nil {
+			log.Println("Create article in DB error: ", err)
+			continue
+		}
+	}
+}
+
+
+func (s *Server) ArticleHandler(w http.ResponseWriter, r *http.Request) {
+	articleID := chi.URLParam(r, "slug")
+	userID, err := getUserIDFromContext(w, r)
+	if err != nil {
+		return
+	}
+
+	article, err := s.db.Query().GetArticle(context.Background(), database.GetArticleParams{ID: userID, Nid: articleID})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	log.Println(article.Content.String)
+
+	web.Article(article).Render(context.Background(), w)
+}
+
+func (s *Server) ArticleContentHandler(w http.ResponseWriter, r *http.Request) {
+	articleID := chi.URLParam(r, "slug")
+	userID, err := getUserIDFromContext(w, r)
+	if err != nil {
+		return
+	}
+
+	article, err := s.db.Query().GetArticle(context.Background(), database.GetArticleParams{ID: userID, Nid: articleID})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	contentType := r.URL.Query().Get("content")
+
+	if contentType == "extracted" {
+		url := article.Url
+		content, err := readability.FromURL(url, 5*time.Second)
+		if err != nil {
+			_, _ = w.Write([]byte("Not able to extract content from the URL"))
+		}
+
+		_, _ = w.Write([]byte(content.Content))
+	} else {
+		_, _ = w.Write([]byte(article.Content.String))
+	}
+}
