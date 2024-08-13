@@ -2,36 +2,49 @@
 // versions:
 //   sqlc v1.27.0
 
-package database
+package query
 
 import (
 	"database/sql"
 )
 
 type Article struct {
-	ID        int64
-	ArticleID string
-	Url       string
-	Title     string
-	Summary   sql.NullString
-	Content   sql.NullString
-	Authors   sql.NullString
-	Media     sql.NullString
-	FeedID    string
+	ID          int64
+	Nid         string
+	RssID       string
+	Url         string
+	Title       string
+	Summary     sql.NullString
+	Content     sql.NullString
+	Authors     sql.NullString
+	Media       sql.NullString
+	PublishedAt sql.NullTime
+	FeedID      int64
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
 }
 
 type Feed struct {
-	ID      int64
-	FeedID  string
-	Url     string
-	Title   string
-	Summary sql.NullString
-	Authors sql.NullString
-	Image   sql.NullString
+	ID        int64
+	Nid       string
+	Url       string
+	Title     string
+	Summary   sql.NullString
+	Authors   sql.NullString
+	Image     sql.NullString
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
 }
 
 type User struct {
-	ID       int64
-	Username string
-	Password string
+	ID        int64
+	Username  string
+	Password  string
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+}
+
+type UserFeed struct {
+	UserID int64
+	FeedID int64
 }

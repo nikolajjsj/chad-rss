@@ -1,38 +1,42 @@
 CREATE TABLE users (
-  id   INTEGER PRIMARY KEY,
-  username text NOT NULL,
-  password text NOT NULL
+  id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  username text NOT NULL UNIQUE,
+  password text NOT NULL,
 
-  -- created_at timestamp default now(),
-  -- updated_at timestamp default now()
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE feed (
-  id   INTEGER PRIMARY KEY,
-  feed_id text NOT NULL,
-  url text NOT NULL,
+CREATE TABLE feeds (
+  id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  nid text NOT NULL UNIQUE,
+  url text NOT NULL UNIQUE,
   title text NOT NULL,
   summary text,
   authors text,
-  image text
-  
-  -- created_at timestamp default now(),
-  -- updated_at timestamp default now()
+  image text,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE article (
-  id   INTEGER PRIMARY KEY,
-  article_id text NOT NULL,
+CREATE TABLE articles (
+  id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  nid text NOT NULL UNIQUE,
+  rss_id text NOT NULL UNIQUE,
   url text NOT NULL,
   title text NOT NULL,
   summary text,
   content text,
   authors text,
   media text,
+  published_at TIMESTAMP,
 
-  feed_id text NOT NULL
+  feed_id INTEGER NOT NULL,
 
-  -- created_at timestamp default now(),
-  -- updated_at timestamp default now()
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY(feed_id) REFERENCES feeds(id)
 );
 

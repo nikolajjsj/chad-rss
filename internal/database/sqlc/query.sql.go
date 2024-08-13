@@ -3,16 +3,139 @@
 //   sqlc v1.27.0
 // source: query.sql
 
-package database
+package query
 
 import (
 	"context"
+	"database/sql"
 )
+
+const addFeedToUser = `-- name: AddFeedToUser :exec
+INSERT OR IGNORE INTO user_feed (user_id, feed_id) VALUES (
+    ?, ?
+)
+`
+
+type AddFeedToUserParams struct {
+	UserID int64
+	FeedID int64
+}
+
+func (q *Queries) AddFeedToUser(ctx context.Context, arg AddFeedToUserParams) error {
+	_, err := q.db.ExecContext(ctx, addFeedToUser, arg.UserID, arg.FeedID)
+	return err
+}
+
+const createFeed = `-- name: CreateFeed :one
+INSERT OR IGNORE INTO feeds (nid, url, title, summary, authors, image) VALUES (
+    ?, ?, ?, ?, ?, ?
+) RETURNING id, nid, url, title, summary, authors, image, created_at, updated_at
+`
+
+type CreateFeedParams struct {
+	Nid     string
+	Url     string
+	Title   string
+	Summary sql.NullString
+	Authors sql.NullString
+	Image   sql.NullString
+}
+
+func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, error) {
+	row := q.db.QueryRowContext(ctx, createFeed,
+		arg.Nid,
+		arg.Url,
+		arg.Title,
+		arg.Summary,
+		arg.Authors,
+		arg.Image,
+	)
+	var i Feed
+	err := row.Scan(
+		&i.ID,
+		&i.Nid,
+		&i.Url,
+		&i.Title,
+		&i.Summary,
+		&i.Authors,
+		&i.Image,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createFeedArticles = `-- name: CreateFeedArticles :many
+INSERT OR IGNORE INTO articles (rss_id, nid, url, title, summary, content, authors, media, published_at, feed_id) VALUES (
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+) RETURNING id, nid, rss_id, url, title, summary, content, authors, media, published_at, feed_id, created_at, updated_at
+`
+
+type CreateFeedArticlesParams struct {
+	RssID       string
+	Nid         string
+	Url         string
+	Title       string
+	Summary     sql.NullString
+	Content     sql.NullString
+	Authors     sql.NullString
+	Media       sql.NullString
+	PublishedAt sql.NullTime
+	FeedID      int64
+}
+
+func (q *Queries) CreateFeedArticles(ctx context.Context, arg CreateFeedArticlesParams) ([]Article, error) {
+	rows, err := q.db.QueryContext(ctx, createFeedArticles,
+		arg.RssID,
+		arg.Nid,
+		arg.Url,
+		arg.Title,
+		arg.Summary,
+		arg.Content,
+		arg.Authors,
+		arg.Media,
+		arg.PublishedAt,
+		arg.FeedID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Article
+	for rows.Next() {
+		var i Article
+		if err := rows.Scan(
+			&i.ID,
+			&i.Nid,
+			&i.RssID,
+			&i.Url,
+			&i.Title,
+			&i.Summary,
+			&i.Content,
+			&i.Authors,
+			&i.Media,
+			&i.PublishedAt,
+			&i.FeedID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (username, password) VALUES (
   ?, ?
-) RETURNING id, username, password
+) RETURNING id, username, password, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -23,7 +146,13 @@ type CreateUserParams struct {
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, createUser, arg.Username, arg.Password)
 	var i User
-	err := row.Scan(&i.ID, &i.Username, &i.Password)
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Password,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
 	return i, err
 }
 
@@ -37,33 +166,297 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
 	return err
 }
 
+const getArticle = `-- name: GetArticle :one
+SELECT 
+    a.nid,
+    a.url,
+    a.title,
+    a.summary,
+    a.content,
+    a.authors,
+    a.media,
+    a.published_at
+FROM
+    users u
+JOIN
+    user_feed uf ON u.id = uf.user_id
+JOIN
+    feeds f ON uf.feed_id = f.id
+JOIN
+    articles a ON f.id = a.feed_id
+WHERE
+    u.id = ? AND a.nid = ?
+LIMIT 1
+`
+
+type GetArticleParams struct {
+	ID  int64
+	Nid string
+}
+
+type GetArticleRow struct {
+	Nid         string
+	Url         string
+	Title       string
+	Summary     sql.NullString
+	Content     sql.NullString
+	Authors     sql.NullString
+	Media       sql.NullString
+	PublishedAt sql.NullTime
+}
+
+func (q *Queries) GetArticle(ctx context.Context, arg GetArticleParams) (GetArticleRow, error) {
+	row := q.db.QueryRowContext(ctx, getArticle, arg.ID, arg.Nid)
+	var i GetArticleRow
+	err := row.Scan(
+		&i.Nid,
+		&i.Url,
+		&i.Title,
+		&i.Summary,
+		&i.Content,
+		&i.Authors,
+		&i.Media,
+		&i.PublishedAt,
+	)
+	return i, err
+}
+
+const getFeedByID = `-- name: GetFeedByID :one
+SELECT 
+    f.id,
+    f.nid,
+    f.url,
+    f.title,
+    f.summary,
+    f.authors,
+    f.image
+FROM
+    users u 
+JOIN
+    user_feed uf ON u.id = uf.user_id
+JOIN
+    feeds f ON uf.feed_id = f.id
+WHERE
+    u.id = ? AND f.nid = ?
+LIMIT 1
+`
+
+type GetFeedByIDParams struct {
+	ID  int64
+	Nid string
+}
+
+type GetFeedByIDRow struct {
+	ID      int64
+	Nid     string
+	Url     string
+	Title   string
+	Summary sql.NullString
+	Authors sql.NullString
+	Image   sql.NullString
+}
+
+// Get a feed by its ID for a specific user
+func (q *Queries) GetFeedByID(ctx context.Context, arg GetFeedByIDParams) (GetFeedByIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getFeedByID, arg.ID, arg.Nid)
+	var i GetFeedByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Nid,
+		&i.Url,
+		&i.Title,
+		&i.Summary,
+		&i.Authors,
+		&i.Image,
+	)
+	return i, err
+}
+
+const getFeeds = `-- name: GetFeeds :many
+SELECT 
+    f.nid,
+    f.url,
+    f.title,
+    f.summary,
+    f.authors,
+    f.image
+FROM 
+    users u
+JOIN 
+    user_feed uf ON u.id = uf.user_id
+JOIN 
+    feeds f ON uf.feed_id = f.id
+WHERE 
+    u.id = ?
+ORDER BY
+    f.title
+`
+
+type GetFeedsRow struct {
+	Nid     string
+	Url     string
+	Title   string
+	Summary sql.NullString
+	Authors sql.NullString
+	Image   sql.NullString
+}
+
+func (q *Queries) GetFeeds(ctx context.Context, id int64) ([]GetFeedsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getFeeds, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFeedsRow
+	for rows.Next() {
+		var i GetFeedsRow
+		if err := rows.Scan(
+			&i.Nid,
+			&i.Url,
+			&i.Title,
+			&i.Summary,
+			&i.Authors,
+			&i.Image,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, password FROM users WHERE id = ? LIMIT 1
+SELECT id, username, password, created_at, updated_at FROM users WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByID, id)
 	var i User
-	err := row.Scan(&i.ID, &i.Username, &i.Password)
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Password,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, password FROM users WHERE username = ? LIMIT 1
+SELECT id, username, password, created_at, updated_at FROM users WHERE username = ? LIMIT 1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByUsername, username)
 	var i User
-	err := row.Scan(&i.ID, &i.Username, &i.Password)
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Password,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
 	return i, err
+}
+
+const getUserFeedArticles = `-- name: GetUserFeedArticles :many
+SELECT 
+    a.nid,
+    a.url,
+    a.title,
+    a.summary,
+    a.content,
+    a.authors,
+    a.media,
+    a.published_at
+FROM
+    users u
+JOIN
+    user_feed uf ON u.id = uf.user_id
+JOIN
+    feeds f ON uf.feed_id = f.id
+JOIN    
+    articles a ON f.id = a.feed_id
+WHERE
+    u.id = ? AND f.nid = ?
+ORDER BY
+    a.published_at DESC
+`
+
+type GetUserFeedArticlesParams struct {
+	ID  int64
+	Nid string
+}
+
+type GetUserFeedArticlesRow struct {
+	Nid         string
+	Url         string
+	Title       string
+	Summary     sql.NullString
+	Content     sql.NullString
+	Authors     sql.NullString
+	Media       sql.NullString
+	PublishedAt sql.NullTime
+}
+
+func (q *Queries) GetUserFeedArticles(ctx context.Context, arg GetUserFeedArticlesParams) ([]GetUserFeedArticlesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserFeedArticles, arg.ID, arg.Nid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserFeedArticlesRow
+	for rows.Next() {
+		var i GetUserFeedArticlesRow
+		if err := rows.Scan(
+			&i.Nid,
+			&i.Url,
+			&i.Title,
+			&i.Summary,
+			&i.Content,
+			&i.Authors,
+			&i.Media,
+			&i.PublishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const removeFeedFromUser = `-- name: RemoveFeedFromUser :exec
+DELETE FROM user_feed
+WHERE user_id = ? AND feed_id = ?
+`
+
+type RemoveFeedFromUserParams struct {
+	UserID int64
+	FeedID int64
+}
+
+func (q *Queries) RemoveFeedFromUser(ctx context.Context, arg RemoveFeedFromUserParams) error {
+	_, err := q.db.ExecContext(ctx, removeFeedFromUser, arg.UserID, arg.FeedID)
+	return err
 }
 
 const updateUser = `-- name: UpdateUser :exec
 UPDATE users
 SET username = ?, password = ?
 WHERE id = ?
-RETURNING id, username, password
+RETURNING id, username, password, created_at, updated_at
 `
 
 type UpdateUserParams struct {

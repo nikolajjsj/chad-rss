@@ -2,6 +2,7 @@ package database
 
 import (
 	database "chad-rss/internal/database/sqlc"
+	query "chad-rss/internal/database/sqlc"
 	"context"
 	"database/sql"
 	"fmt"
@@ -28,7 +29,8 @@ type Service interface {
 	Close() error
 
 	// Query returns the database queries.
-	Query() *database.Queries
+	Query() *query.Queries
+
 }
 
 type service struct {
@@ -60,27 +62,6 @@ func New() Service {
 		db: db,
 	}
 	return dbInstance
-}
-
-func migrateDB(db *sql.DB) {
-	// Migration logic goes here
-
-	// Create a driver instance for golang-migrate
-	driver, err := sqlite.WithInstance(db, &sqlite.Config{})
-	if err != nil {
-		log.Fatalf("error creating driver instance: %v", err)
-	}
-
-	// Create a new migration instance
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://internal/database/migrations",
-		"sqlite",
-		driver,
-	)
-	if err != nil {
-		log.Fatalf("error creating migration instance: %v", err)
-	}
-	m.Up()
 }
 
 // Health checks the health of the database connection by pinging the database.
@@ -145,5 +126,28 @@ func (s *service) Close() error {
 
 // Query returns the database queries.
 func (s *service) Query() *database.Queries {
-	return database.New(s.db)
+	return query.New(s.db)
+}
+
+
+func migrateDB(db *sql.DB) {
+	// Create a driver instance for golang-migrate
+	driver, err := sqlite.WithInstance(db, &sqlite.Config{})
+	if err != nil {
+		log.Fatalf("error creating driver instance: %v", err)
+	}
+
+	// Create a new migration instance
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://internal/database/migrations",
+		"sqlite",
+		driver,
+	)
+	if err != nil {
+		log.Fatalf("error creating migration instance: %v", err)
+	}
+	err = m.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		log.Fatalf("error applying migrations: %v", err)
+	}
 }
