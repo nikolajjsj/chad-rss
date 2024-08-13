@@ -1,29 +1,57 @@
+# Project chad-rss
+
+One Paragraph of project description goes here
+
+## Getting Started
+
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+
+## MakeFile
+
+run all make commands with clean tests
+```bash
+make all build
+```
+
+build the application
+```bash
+make build
+```
+
+run the application
+```bash
+make run
+```
+
+Create DB container
+```bash
+make docker-run
+```
+
+Shutdown DB container
+```bash
+make docker-down
+```
+
+live reload the application
+```bash
+make watch
+```
+
+run the test suite
+```bash
+make test
+```
+
+clean up binary from the last build
+```bash
+make clean
+```
+
 # chad-rss
 
 ## 👀 Usage
-#### 1. Run Postgres
-```bash
-$ docker compose build
-```
-```bash
-$ docker compose up
-```
-#### 2. Wait 1-2 minutes
-```console
-[+] Running 2/0
- ✔ Network sqlc_default       Created                                                                             0.1s
- ✔ Container postgres         Created                                                                             0.0s
-Attaching to postgres
-postgres  |
-postgres  | PostgreSQL Database directory appears to contain a database; Skipping initialization
-postgres  |
-postgres  |
-postgres  | 2023-09-28 09:17:50.737 UTC [1] LOG:  starting PostgreSQL 16.0 (Debian 16.0-1.pgdg120+1) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
-postgres  | 2023-09-28 09:17:50.737 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
-postgres  | 2023-09-28 09:17:50.737 UTC [1] LOG:  listening on IPv6 address "::", port 5432
-postgres  | 2023-09-28 09:17:50.740 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
-postgres  | 2023-09-28 09:17:50.751 UTC [30] LOG:  database system was shut down at 2023-09-28 08:50:35 UTC
-postgres  | 2023-09-28 09:17:50.770 UTC [1] LOG:  database system is ready to accept connections
+
 ```
 #### 3. You have to migrate the database.
 > ##### 🎯 It is a "database-first" ORM as opposed to "code-first" (like gorm/gorp). That means you must first create your database schema.
@@ -65,9 +93,6 @@ y
 ```bash
 # Go 1.17 and above:
 $ go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-
-# Go 1.16 and below:
-go get github.com/sqlc-dev/sqlc/cmd/sqlc
 ```
 ###### 2. Create a configuration file
 ###### Example

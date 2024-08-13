@@ -1,0 +1,20 @@
+package components
+
+type EmptyStateProps struct {
+Title string
+Message string
+ActionHref string
+ActionText string
+}
+
+templ EmptyState(p EmptyStateProps) {
+<div class="text-center">
+  <h3 class="mt-2 text-sm font-semibold text-gray-900">{ p.Title }</h3>
+  <p class="mt-1 text-sm text-gray-500">{ p.Message }</p>
+  <div class="mt-6 flex items-center justify-center">
+    <a href={ templ.SafeURL(p.ActionHref) } class="text-sm font-semibold text-indigo-900">
+      { p.ActionText }<span aria-hidden="true">&rarr;</span>
+    </a>
+  </div>
+</div>
+}
