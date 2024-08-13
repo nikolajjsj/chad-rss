@@ -1,9 +1,8 @@
 package components
 
 type ButtonProps struct {
-	Variant string
-	Type    string
-	Size    string
+	Type string
+	Size string
 }
 
 func (p ButtonProps) ClassName() string {
