@@ -42,6 +42,13 @@ func (s *Server) RegisterRoutes() http.Handler {
 	fileServer := http.FileServer(http.FS(web.Files))
 	r.Handle("/assets/*", fileServer)
 
+	// Protected routes
+	r.Group(func(r chi.Router) {
+		// Seek, verify and validate JWT tokens
+		r.Use(jwtauth.Verifier(tokenAuth))
+		r.Use(jwtauth.Authenticator(tokenAuth))
+	})
+
 	// Public routes
 	r.Group(func(r chi.Router) {
 		r.Get("/", templ.Handler(web.Dashboard()).ServeHTTP)
@@ -50,19 +57,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 		r.Post("/signin", s.Signin)
 		r.Get("/signup", templ.Handler(web.SignupForm()).ServeHTTP)
 		r.Post("/signup", s.Signup)
-	})
-
-	// Protected routes
-	r.Group(func(r chi.Router) {
-		// Seek, verify and validate JWT tokens
-		r.Use(jwtauth.Verifier(tokenAuth))
-		r.Use(jwtauth.Authenticator(tokenAuth))
-
-		r.Get("/health", s.healthHandler)
-		// r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
-		// 	_, claims, _ := jwtauth.FromContext(r.Context())
-		// 	w.Write([]byte(fmt.Sprintf("protected area. hi %v", claims["user_id"])))
-		// })
 	})
 
 	return r
@@ -159,5 +153,78 @@ func (s *Server) Signin(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.Header().Add("HX-Redirect", "/")
+}
+
+
+func (s *Server) FeedCreateHandler(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		log.Println("Parse form error: ", err)
+		return
+	}
+	feedURL := r.FormValue("URL")
+
+	_, err := url.ParseRequestURI(feedURL)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		log.Println("Invalid URL: ", err)
+		return
+	}
+
+	fp := gofeed.NewParser()
+	feed, err := fp.ParseURL(feedURL)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("Parse feed error: ", err)
+		return
+	}
+
+	userID, err := getUserIDFromContext(w, r)
+	if err != nil {
+		return
+	}
+	feedID, err := utils.GenerateNID()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("Generate NID error: ", err)
+		return
+	}
+
+	ctx := context.Background()
+	tx, err := s.db.Transaction(ctx)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("DB transaction error: ", err)
+		return
+	}
+	defer tx.Rollback()
+
+	qtx := s.db.Query().WithTx(tx)
+
+	feedDB, err := qtx.CreateFeed(ctx, database.CreateFeedParams{
+		Nid:     feedID,
+		Url:     feedURL,
+		Title:   feed.Title,
+		Summary: sql.NullString{String: feed.Description, Valid: true},
+		Image:   sql.NullString{String: feed.Image.URL, Valid: true},
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("Create feed in DB error: ", err)
+		return
+	}
+
+	if err := qtx.AddFeedToUser(ctx, database.AddFeedToUserParams{
+		UserID: userID,
+		FeedID: feedDB.ID,
+	}); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("Add feed to user in DB error: ", err)
+		return
+	}
+
+	tx.Commit()
+
+	w.Header().Add("HX-Redirect", fmt.Sprintf("/feeds/%s", feedID))
 }
 
