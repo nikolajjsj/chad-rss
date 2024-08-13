@@ -53,13 +53,13 @@ func (s *Server) RegisterRoutes() http.Handler {
 		r.Get("/health", s.healthHandler)
 
 		r.Get("/feeds/sidebar", s.FeedsSidebarHandler)
-		r.Get("/feeds/{slug}/sidebar", s.ArticlesSidebarHandler)
 
 		r.Get("/feeds/create", templ.Handler(web.FeedsCreate()).ServeHTTP)
 		r.Post("/feeds/create", s.FeedCreateHandler)
 		r.Get("/feeds/{slug}", s.FeedHandler)
 		r.Get("/feeds/{slug}/articles/{id}", s.FeedHandler)
 		r.Post("/feeds/{slug}/sync", s.FeedSyncHandler)
+		r.Delete("/feeds/{slug}", s.FeedDeleteHandler)
 
 		r.Get("/articles/{slug}", s.ArticleHandler)
 		r.Get("/articles/{slug}/content", s.ArticleContentHandler)
@@ -361,6 +361,12 @@ func (s *Server) FeedSyncHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) FeedDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("HX-Redirect", "/")
+	w.WriteHeader(http.StatusNotImplemented)
+
+
+}
 
 func (s *Server) ArticleHandler(w http.ResponseWriter, r *http.Request) {
 	articleID := chi.URLParam(r, "slug")
