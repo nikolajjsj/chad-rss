@@ -31,6 +31,7 @@ type Service interface {
 	// Query returns the database queries.
 	Query() *query.Queries
 
+	Transaction(ctx context.Context) (*sql.Tx, error)
 }
 
 type service struct {
@@ -129,6 +130,13 @@ func (s *service) Query() *database.Queries {
 	return query.New(s.db)
 }
 
+func (s *service) Transaction(ctx context.Context) (*sql.Tx, error) {
+	tx, err := dbInstance.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return tx, nil
+}
 
 func migrateDB(db *sql.DB) {
 	// Create a driver instance for golang-migrate
