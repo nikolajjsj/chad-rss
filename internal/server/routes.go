@@ -26,19 +26,16 @@ var tokenAuth *jwtauth.JWTAuth
 
 func init() {
 	tokenAuth = jwtauth.New("HS256", []byte(os.Getenv("JWT_SECRET")), nil)
-
-	// For debugging/example purposes, we generate and print
-	// a sample jwt token with claims `user_id:123` here:
-	_, tokenString, _ := tokenAuth.Encode(map[string]interface{}{"user_id": 123})
-	fmt.Printf("DEBUG: a sample jwt is %s\n\n", tokenString)
 }
 
 func (s *Server) RegisterRoutes() http.Handler {
 	r := chi.NewRouter()
-	// r.Use(middleware.Heartbeat("/"))
+
+	// Middleware
 	r.Use(middleware.Logger)
 	r.NotFound(templ.Handler(web.NotFound()).ServeHTTP)
 
+	// Public assets
 	fileServer := http.FileServer(http.FS(web.Files))
 	r.Handle("/assets/*", fileServer)
 
