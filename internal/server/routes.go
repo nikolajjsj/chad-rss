@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"chad-rss/cmd/web"
 	database "chad-rss/internal/database/sqlc"
+	"chad-rss/internal/utils"
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
@@ -41,13 +44,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	// Public routes
 	r.Group(func(r chi.Router) {
-		// r.Get("/welcome", templ.Handler(web.Welcome()).ServeHTTP)
 		r.Get("/", templ.Handler(web.Dashboard()).ServeHTTP)
-		r.Get("/about", templ.Handler(web.About()).ServeHTTP)
 
 		r.Get("/signin", templ.Handler(web.SigninForm()).ServeHTTP)
 		r.Post("/signin", s.Signin)
-
 		r.Get("/signup", templ.Handler(web.SignupForm()).ServeHTTP)
 		r.Post("/signup", s.Signup)
 	})
@@ -73,18 +73,14 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(jsonResp)
 }
 
-func (s *Server) PingHandler(w http.ResponseWriter, r *http.Request) {
-	_, _ = w.Write([]byte("pong"))
-}
-
 func (s *Server) Signup(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		log.Println("Parse form error: ", err)
 		return
 	}
-	username := r.FormValue("username")
-	password := r.FormValue("password")
+	username := r.FormValue("Username")
+	password := r.FormValue("Password")
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 8)
 	if err != nil {
@@ -108,13 +104,15 @@ func (s *Server) Signup(w http.ResponseWriter, r *http.Request) {
 		log.Println("Error creating JWT", err)
 		return
 	}
-	r.AddCookie(&http.Cookie{
+	http.SetCookie(w, &http.Cookie{
 		Name:     "jwt",
 		Value:    tokenString,
 		Expires:  time.Now().Add(24 * time.Hour),
 		Secure:   true,
 		HttpOnly: true,
 	})
+
+	w.Header().Add("HX-Redirect", "/")
 }
 
 func (s *Server) Signin(w http.ResponseWriter, r *http.Request) {
@@ -122,8 +120,8 @@ func (s *Server) Signin(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	username := r.FormValue("username")
-	password := r.FormValue("password")
+	username := r.FormValue("Username")
+	password := r.FormValue("Password")
 
 	user, err := s.db.Query().GetUserByUsername(context.Background(), username)
 	if err != nil {
@@ -144,18 +142,22 @@ func (s *Server) Signin(w http.ResponseWriter, r *http.Request) {
 
 	// Create a new token
 	_, tokenString, err := tokenAuth.Encode(map[string]interface{}{
-		"username":      username,
+		"id":            user.ID,
+		"username":      user.Username,
 		"refresh_token": uuid.New().String(),
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	r.AddCookie(&http.Cookie{
+	http.SetCookie(w, &http.Cookie{
 		Name:     "jwt",
 		Value:    tokenString,
 		Expires:  time.Now().Add(24 * time.Hour),
 		Secure:   true,
 		HttpOnly: true,
 	})
+
+	w.Header().Add("HX-Redirect", "/")
 }
+
