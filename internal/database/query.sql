@@ -36,7 +36,8 @@ JOIN
 WHERE 
     u.id = ?
 ORDER BY
-    f.title;
+    f.title
+LIMIT ? OFFSET ?;
 
 -- name: GetFeedByID :one
 -- Get a feed by its ID for a specific user
@@ -93,7 +94,8 @@ JOIN
 WHERE
     u.id = ? AND f.nid = ?
 ORDER BY
-    a.published_at DESC;
+    a.published_at DESC
+LIMIT ? OFFSET ?;
 
 -- name: CreateFeedArticles :many
 INSERT OR IGNORE INTO articles (rss_id, nid, url, title, summary, content, authors, media, published_at, feed_id) VALUES (
