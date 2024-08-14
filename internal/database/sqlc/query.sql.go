@@ -290,7 +290,14 @@ WHERE
     u.id = ?
 ORDER BY
     f.title
+LIMIT ? OFFSET ?
 `
+
+type GetFeedsParams struct {
+	ID     int64
+	Limit  int64
+	Offset int64
+}
 
 type GetFeedsRow struct {
 	Nid     string
@@ -301,8 +308,8 @@ type GetFeedsRow struct {
 	Image   sql.NullString
 }
 
-func (q *Queries) GetFeeds(ctx context.Context, id int64) ([]GetFeedsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFeeds, id)
+func (q *Queries) GetFeeds(ctx context.Context, arg GetFeedsParams) ([]GetFeedsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getFeeds, arg.ID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -387,11 +394,14 @@ WHERE
     u.id = ? AND f.nid = ?
 ORDER BY
     a.published_at DESC
+LIMIT ? OFFSET ?
 `
 
 type GetUserFeedArticlesParams struct {
-	ID  int64
-	Nid string
+	ID     int64
+	Nid    string
+	Limit  int64
+	Offset int64
 }
 
 type GetUserFeedArticlesRow struct {
@@ -406,7 +416,12 @@ type GetUserFeedArticlesRow struct {
 }
 
 func (q *Queries) GetUserFeedArticles(ctx context.Context, arg GetUserFeedArticlesParams) ([]GetUserFeedArticlesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getUserFeedArticles, arg.ID, arg.Nid)
+	rows, err := q.db.QueryContext(ctx, getUserFeedArticles,
+		arg.ID,
+		arg.Nid,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -388,10 +388,32 @@ func (s *Server) FeedSyncHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) FeedDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	feedID := chi.URLParam(r, "slug")
+	userID, err := getUserIDFromContext(w, r)
+	if err != nil {
+		return
+	}
+
+	feed, err := s.db.Query().GetFeedByID(context.Background(), database.GetFeedByIDParams{
+		Nid: feedID,
+		ID:  userID,
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("Get feed by ID in DB error: ", err)
+		return
+	}
+
+	if err = s.db.Query().RemoveFeedFromUser(context.Background(), database.RemoveFeedFromUserParams{
+		UserID: userID,
+		FeedID: feed.ID,
+	}); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("Remove feed from user in DB error: ", err)
+		return
+	}
+
 	w.Header().Add("HX-Redirect", "/")
-	w.WriteHeader(http.StatusNotImplemented)
-
-
 }
 
 func (s *Server) ArticleHandler(w http.ResponseWriter, r *http.Request) {
