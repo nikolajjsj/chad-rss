@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,9 +58,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 		r.Get("/feeds/create", templ.Handler(web.FeedsCreate()).ServeHTTP)
 		r.Post("/feeds/create", s.FeedCreateHandler)
 		r.Get("/feeds/{slug}", s.FeedHandler)
-		r.Get("/feeds/{slug}/articles/{id}", s.FeedHandler)
-		r.Post("/feeds/{slug}/sync", s.FeedSyncHandler)
 		r.Delete("/feeds/{slug}", s.FeedDeleteHandler)
+		r.Post("/feeds/{slug}/sync", s.FeedSyncHandler)
+		r.Get("/feeds/{slug}/articles", s.FeedArticlesHandler)
+		r.Get("/feeds/{slug}/articles/{id}", s.FeedHandler)
 
 		r.Get("/articles/{slug}", s.ArticleHandler)
 		r.Get("/articles/{slug}/content", s.ArticleContentHandler)
@@ -177,7 +179,11 @@ func (s *Server) FeedsSidebarHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	feeds, err := s.db.Query().GetFeeds(context.Background(), userID)
+	feeds, err := s.db.Query().GetFeeds(context.Background(), database.GetFeedsParams{
+		ID:     userID,
+		Limit:  1000,
+		Offset: 0,
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -203,28 +209,43 @@ func (s *Server) FeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if articleID != "" {
+		web.Feed(web.FeedProps{
+			Feed:      feed,
+			ArticleID: articleID,
+		}).Render(context.Background(), w)
+	} else {
+		web.Feed(web.FeedProps{
+			Feed: feed,
+		}).Render(context.Background(), w)
+	}
+
+}
+
+func (s *Server) FeedArticlesHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserIDFromContext(w, r)
+	if err != nil {
+		return
+	}
+	feedID := chi.URLParam(r, "slug")
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		page = 1
+	}
+
+	var PER_PAGE int64 = 20
 	articles, err := s.db.Query().GetUserFeedArticles(context.Background(), database.GetUserFeedArticlesParams{
-		ID:  userID,
-		Nid: feedID,
+		ID:     userID,
+		Nid:    feedID,
+		Limit:  PER_PAGE,
+		Offset: (int64(page) - 1) * PER_PAGE,
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	if articleID != "" {
-		web.Feed(web.FeedProps{
-			Feed:      feed,
-			Articles:  articles,
-			ArticleID: articleID,
-		}).Render(context.Background(), w)
-	} else {
-		web.Feed(web.FeedProps{
-			Feed:     feed,
-			Articles: articles,
-		}).Render(context.Background(), w)
-	}
-
+	web.FeedList(feedID, page+1, articles).Render(context.Background(), w)
 }
 
 func (s *Server) FeedCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -272,12 +293,17 @@ func (s *Server) FeedCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	qtx := s.db.Query().WithTx(tx)
 
+	image := ""
+	if feed.Image != nil && feed.Image.URL != "" {
+		image = feed.Image.URL
+	}
+
 	feedDB, err := qtx.CreateFeed(ctx, database.CreateFeedParams{
 		Nid:     feedID,
 		Url:     feedURL,
 		Title:   feed.Title,
-		Summary: sql.NullString{String: feed.Description, Valid: true},
-		Image:   sql.NullString{String: feed.Image.URL, Valid: true},
+		Summary: sql.NullString{String: feed.Description, Valid: feed.Description != ""},
+		Image:   sql.NullString{String: image, Valid: feed.Image != nil && feed.Image.URL != ""},
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

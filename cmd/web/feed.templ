@@ -8,14 +8,13 @@ timeago "github.com/xeonx/timeago"
 
 type FeedProps struct {
 Feed query.GetFeedByIDRow
-Articles []query.GetUserFeedArticlesRow
 ArticleID string
 }
 
 templ Feed(p FeedProps) {
 @Base(
 "Feed",
-feedList(p.Feed, p.Articles),
+feedContent(p.Feed),
 ) {
 <div id="article-page" class="text-center" hx-get={ fmt.Sprintf("/articles/%s", p.ArticleID) }>
 	<h3 class="mt-2 text-sm font-semibold text-gray-900">No article</h3>
@@ -24,7 +23,7 @@ feedList(p.Feed, p.Articles),
 }
 }
 
-templ feedList(f query.GetFeedByIDRow, articles []query.GetUserFeedArticlesRow) {
+templ feedContent(f query.GetFeedByIDRow) {
 <div class="flex flex-col justify-between gap-y-2 py-5">
 	<div class="flex min-w-0 gap-x-4">
 		<img class="h-10 w-10 flex-none rounded bg-gray-50" src={ f.Image.String } alt="feed image" />
@@ -36,33 +35,43 @@ templ feedList(f query.GetFeedByIDRow, articles []query.GetUserFeedArticlesRow) 
 	@feedActions(f)
 </div>
 <ul role="list" class="divide-y divide-gray-100">
-	for _, a := range articles {
-	@feedListItem(a)
-	}
+	<div hx-get={ fmt.Sprintf("/feeds/%s/articles", f.Nid) } hx-trigger="load"></div>
 </ul>
 }
 
-templ feedListItem(a query.GetUserFeedArticlesRow) {
-<li class="group -mx-2 px-2 py-4 rounded cursor-pointer hover:bg-gray-50" hx-get={ fmt.Sprintf("/articles/%s", a.Nid) }
-	hx-target="#article-page">
-	<div class="flex min-w-0 gap-x-4">
-		if a.Media.Valid {
-		<img class="flex-none h-10 w-10 rounded bg-gray-50" src={ a.Media.String } alt="article image" />
-		} else {
-		<span
-			class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-[0.625rem] font-medium text-gray-400 group-hover:border-indigo-600 group-hover:text-indigo-600">
-			{ string([]rune(a.Title)[0]) }
-		</span>
-		}
-		<div class="min-w-0 flex-auto">
-			<p class="text-sm font-semibold leading-4 text-gray-900 group-hover:text-indigo-600">{ a.Title }</p>
-			<p class="mt-1 line-clamp-2 text-sm leading-2 text-gray-600">{ a.Summary.String }</p>
-			<time class="mt-1 text-xs leading-1 text-gray-500" datetime={ a.PublishedAt.Time.String() }>
-				{ timeago.English.Format(a.PublishedAt.Time) }
-			</time>
-		</div>
-	</div>
+templ FeedList(feedNid string, page int, articles []query.GetUserFeedArticlesRow) {
+for idx, a := range articles {
+if idx == len(articles) - 1 {
+<li hx-get={ fmt.Sprintf("/feeds/%s/articles?page=%d", feedNid, page) } hx-trigger="intersect once" hx-swap="afterend"
+	class="group -mx-2 px-2 py-4 rounded cursor-pointer hover:bg-gray-50">
+	@feedListItem(a)
 </li>
+} else {
+<li class="group -mx-2 px-2 py-4 rounded cursor-pointer hover:bg-gray-50">
+	@feedListItem(a)
+</li>
+}
+}
+}
+
+templ feedListItem(a query.GetUserFeedArticlesRow) {
+<div hx-get={ fmt.Sprintf("/articles/%s", a.Nid) } hx-target="#article-page" class="flex min-w-0 gap-x-4">
+	if a.Media.Valid {
+	<img class="flex-none h-10 w-10 rounded bg-gray-50" src={ a.Media.String } alt="article image" />
+	} else {
+	<span
+		class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-[0.625rem] font-medium text-gray-400 group-hover:border-indigo-600 group-hover:text-indigo-600">
+		{ string([]rune(a.Title)[0]) }
+	</span>
+	}
+	<div class="min-w-0 flex-auto">
+		<p class="text-sm font-semibold leading-4 text-gray-900 group-hover:text-indigo-600">{ a.Title }</p>
+		<p class="mt-1 line-clamp-2 text-sm leading-2 text-gray-600">{ a.Summary.String }</p>
+		<time class="mt-1 text-xs leading-1 text-gray-500" datetime={ a.PublishedAt.Time.String() }>
+			{ timeago.English.Format(a.PublishedAt.Time) }
+		</time>
+	</div>
+</div>
 }
 
 templ feedActions(f query.GetFeedByIDRow) {
