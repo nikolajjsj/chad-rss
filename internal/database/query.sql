@@ -40,7 +40,6 @@ ORDER BY
 LIMIT ? OFFSET ?;
 
 -- name: GetFeedByID :one
--- Get a feed by its ID for a specific user
 SELECT 
     f.id,
     f.nid,
