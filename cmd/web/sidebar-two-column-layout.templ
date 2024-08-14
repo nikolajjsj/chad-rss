@@ -61,7 +61,9 @@ templ sidebar() {
 			<li>
 				<ul role="list" class="-mx-2 space-y-1">
 					@sidebarItem("/", "Home")
+					if ctx.Value("authenticated") == false {
 					@sidebarItem("/signin", "Sign in")
+					}
 				</ul>
 			</li>
 			<li>
