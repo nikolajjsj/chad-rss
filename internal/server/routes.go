@@ -49,7 +49,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Group(func(r chi.Router) {
 		// Seek, verify and validate JWT tokens
 		r.Use(jwtauth.Verifier(tokenAuth))
-		r.Use(jwtauth.Authenticator(tokenAuth))
+		r.Use(Authenticator(tokenAuth))
 
 		r.Get("/health", s.healthHandler)
 
