@@ -10,7 +10,15 @@ templ Article(article query.GetArticleRow) {
 <div class="border-t border-gray-200 mt-4 mb-8"></div>
 <div class="flex flex-col mx-auto gap-8 max-w-prose">
 	<div id="article-content">
+		if article.Content.Valid {
 		@templ.Raw(article.Content.String)
+		} else if article.Summary.Valid {
+		@templ.Raw(article.Summary.String)
+		} else {
+		<p class="text-gray-500">
+			No content available
+		</p>
+		}
 	</div>
 </div>
 }
