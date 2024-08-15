@@ -4,6 +4,7 @@ import (
 query "chad-rss/internal/database/sqlc"
 "fmt"
 timeago "github.com/xeonx/timeago"
+"html"
 )
 
 type FeedProps struct {
@@ -66,7 +67,7 @@ templ feedListItem(a query.GetUserFeedArticlesRow) {
 	}
 	<div class="min-w-0 flex-auto">
 		<p class="text-sm font-semibold leading-4 text-gray-900 group-hover:text-indigo-600">{ a.Title }</p>
-		<p class="mt-1 line-clamp-2 text-sm leading-2 text-gray-600">{ a.Summary.String }</p>
+		<p class="mt-1 line-clamp-2 text-sm leading-2 text-gray-600">{ html.UnescapeString(a.Summary.String) }</p>
 		<time class="mt-1 text-xs leading-1 text-gray-500" datetime={ a.PublishedAt.Time.String() }>
 			{ timeago.English.Format(a.PublishedAt.Time) }
 		</time>
