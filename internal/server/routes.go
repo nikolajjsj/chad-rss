@@ -356,11 +356,20 @@ func (s *Server) FeedSyncHandler(w http.ResponseWriter, r *http.Request) {
 			media = item.Image.URL
 		} else {
 			for i := range item.Links {
-				if strings.Contains(item.Links[i], "image/jpeg") || strings.Contains(item.Links[i], "image/jpg") || strings.Contains(item.Links[i], "image/png") {
+				if strings.Contains(item.Links[i], ".jpeg") || strings.Contains(item.Links[i], ".jpg") || strings.Contains(item.Links[i], ".png") {
 					media = item.Links[i]
 					break
 				}
 			}
+		}
+
+		authors := ""
+		if item.Authors != nil {
+			stringSlice := make([]string, len(item.Authors))
+			for i, v := range item.Authors {
+				stringSlice[i] = v.Name
+			}
+			authors = strings.Join(stringSlice[:], ",")
 		}
 
 		nid, err := utils.GenerateNID()
@@ -376,7 +385,7 @@ func (s *Server) FeedSyncHandler(w http.ResponseWriter, r *http.Request) {
 			Title:       item.Title,
 			Summary:     sql.NullString{String: item.Description, Valid: item.Description != ""},
 			Content:     sql.NullString{String: item.Content, Valid: true},
-			Authors:     sql.NullString{String: item.Author.Name, Valid: item.Author.Name != ""},
+			Authors:     sql.NullString{String: authors, Valid: authors != ""},
 			Media:       sql.NullString{String: media, Valid: media != ""},
 			PublishedAt: sql.NullTime{Time: *item.PublishedParsed, Valid: item.PublishedParsed != nil},
 			FeedID:      feedDB.ID,
@@ -428,8 +437,6 @@ func (s *Server) ArticleHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	log.Println(article.Content.String)
 
 	web.Article(article).Render(context.Background(), w)
 }
