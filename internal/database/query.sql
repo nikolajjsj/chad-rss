@@ -19,6 +19,9 @@ RETURNING *;
 DELETE FROM users
 WHERE id = ?;
 
+-- name: FeedsCount :one
+SELECT COUNT(*) FROM feeds;
+
 -- name: GetFeeds :many
 SELECT 
     f.nid,
@@ -38,6 +41,15 @@ WHERE
 ORDER BY
     f.title
 LIMIT ? OFFSET ?;
+
+-- name: GetFeedByIndex :one
+SELECT 
+    id,
+    nid,
+    url
+FROM
+    feeds
+LIMIT 1 OFFSET ?;
 
 -- name: GetFeedByID :one
 SELECT 

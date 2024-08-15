@@ -166,6 +166,17 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
 	return err
 }
 
+const feedsCount = `-- name: FeedsCount :one
+SELECT COUNT(*) FROM feeds
+`
+
+func (q *Queries) FeedsCount(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, feedsCount)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getArticle = `-- name: GetArticle :one
 SELECT 
     a.nid,
@@ -269,6 +280,29 @@ func (q *Queries) GetFeedByID(ctx context.Context, arg GetFeedByIDParams) (GetFe
 		&i.Authors,
 		&i.Image,
 	)
+	return i, err
+}
+
+const getFeedByIndex = `-- name: GetFeedByIndex :one
+SELECT 
+    id,
+    nid,
+    url
+FROM
+    feeds
+LIMIT 1 OFFSET ?
+`
+
+type GetFeedByIndexRow struct {
+	ID  int64
+	Nid string
+	Url string
+}
+
+func (q *Queries) GetFeedByIndex(ctx context.Context, offset int64) (GetFeedByIndexRow, error) {
+	row := q.db.QueryRowContext(ctx, getFeedByIndex, offset)
+	var i GetFeedByIndexRow
+	err := row.Scan(&i.ID, &i.Nid, &i.Url)
 	return i, err
 }
 
@@ -415,6 +449,7 @@ type GetUserFeedArticlesRow struct {
 	PublishedAt sql.NullTime
 }
 
+// With pagination built in
 func (q *Queries) GetUserFeedArticles(ctx context.Context, arg GetUserFeedArticlesParams) ([]GetUserFeedArticlesRow, error) {
 	rows, err := q.db.QueryContext(ctx, getUserFeedArticles,
 		arg.ID,
