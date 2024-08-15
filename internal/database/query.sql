@@ -42,14 +42,13 @@ ORDER BY
     f.title
 LIMIT ? OFFSET ?;
 
--- name: GetFeedByIndex :one
+-- name: GetAllFeeds :many
 SELECT 
     id,
     nid,
     url
 FROM
-    feeds
-LIMIT 1 OFFSET ?;
+    feeds;
 
 -- name: GetFeedByID :one
 SELECT 

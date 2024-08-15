@@ -177,6 +177,44 @@ func (q *Queries) FeedsCount(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const getAllFeeds = `-- name: GetAllFeeds :many
+SELECT 
+    id,
+    nid,
+    url
+FROM
+    feeds
+`
+
+type GetAllFeedsRow struct {
+	ID  int64
+	Nid string
+	Url string
+}
+
+func (q *Queries) GetAllFeeds(ctx context.Context) ([]GetAllFeedsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllFeeds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllFeedsRow
+	for rows.Next() {
+		var i GetAllFeedsRow
+		if err := rows.Scan(&i.ID, &i.Nid, &i.Url); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArticle = `-- name: GetArticle :one
 SELECT 
     a.nid,
@@ -267,7 +305,6 @@ type GetFeedByIDRow struct {
 	Image   sql.NullString
 }
 
-// Get a feed by its ID for a specific user
 func (q *Queries) GetFeedByID(ctx context.Context, arg GetFeedByIDParams) (GetFeedByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getFeedByID, arg.ID, arg.Nid)
 	var i GetFeedByIDRow
@@ -280,29 +317,6 @@ func (q *Queries) GetFeedByID(ctx context.Context, arg GetFeedByIDParams) (GetFe
 		&i.Authors,
 		&i.Image,
 	)
-	return i, err
-}
-
-const getFeedByIndex = `-- name: GetFeedByIndex :one
-SELECT 
-    id,
-    nid,
-    url
-FROM
-    feeds
-LIMIT 1 OFFSET ?
-`
-
-type GetFeedByIndexRow struct {
-	ID  int64
-	Nid string
-	Url string
-}
-
-func (q *Queries) GetFeedByIndex(ctx context.Context, offset int64) (GetFeedByIndexRow, error) {
-	row := q.db.QueryRowContext(ctx, getFeedByIndex, offset)
-	var i GetFeedByIndexRow
-	err := row.Scan(&i.ID, &i.Nid, &i.Url)
 	return i, err
 }
 
@@ -449,7 +463,6 @@ type GetUserFeedArticlesRow struct {
 	PublishedAt sql.NullTime
 }
 
-// With pagination built in
 func (q *Queries) GetUserFeedArticles(ctx context.Context, arg GetUserFeedArticlesParams) ([]GetUserFeedArticlesRow, error) {
 	rows, err := q.db.QueryContext(ctx, getUserFeedArticles,
 		arg.ID,
