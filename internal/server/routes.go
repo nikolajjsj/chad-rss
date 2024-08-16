@@ -39,6 +39,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	// Middleware
 	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(jwtauth.Verifier(tokenAuth))
+	r.Use(Authenticator(tokenAuth))
+
+	// 404 Handler
 	r.NotFound(templ.Handler(web.NotFound()).ServeHTTP)
 
 	// Public assets
@@ -47,9 +52,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
-		// Seek, verify and validate JWT tokens
-		r.Use(jwtauth.Verifier(tokenAuth))
-		r.Use(Authenticator(tokenAuth))
+		r.Use(StrictAuthenticator(tokenAuth))
 
 		r.Get("/health", s.healthHandler)
 
@@ -460,7 +463,7 @@ func (s *Server) ArticleContentHandler(w http.ResponseWriter, r *http.Request) {
 		url := article.Url
 		content, err := readability.FromURL(url, 5*time.Second)
 		if err != nil {
-			_, _ = w.Write([]byte("Not able to extract content from the URL"))
+			_, _ = w.Write([]byte("Not able to extract content from this article"))
 		}
 
 		_, _ = w.Write([]byte(content.Content))
