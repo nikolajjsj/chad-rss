@@ -24,7 +24,7 @@ templ Article(article query.GetArticleRow) {
 }
 
 templ articleHeader(a query.GetArticleRow) {
-<div class="flex min-w-0 justify-between items-start align-top py-5">
+<div class="flex min-w-0 justify-between items-start align-top py-5 gap-4">
 	<p class="text-left text-2xl font-bold tracking-wide leading-6 text-gray-900">{ a.Title }</p>
 	@articleActions(a)
 </div>
