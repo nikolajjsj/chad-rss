@@ -17,9 +17,9 @@ templ Feed(p FeedProps) {
 "Feed",
 feedContent(p.Feed),
 ) {
-<div id="article-page" class="text-center" hx-get={ fmt.Sprintf("/articles/%s", p.ArticleID) }>
+<div id="article-page" class="text-center">
 	<h3 class="mt-2 text-sm font-semibold text-gray-900">No article</h3>
-	<p class="mt-1 text-sm text-gray-500">Select a article to the left</p>
+	<p class="mt-1 text-sm text-gray-500">Select an article to the left</p>
 </div>
 }
 }
@@ -56,7 +56,8 @@ if idx == len(articles) - 1 {
 }
 
 templ feedListItem(a query.GetUserFeedArticlesRow) {
-<div hx-get={ fmt.Sprintf("/articles/%s", a.Nid) } hx-target="#article-page" class="flex min-w-0 gap-x-4">
+<div hx-get={ fmt.Sprintf("/articles/%s", a.Nid) } hx-target="#article-page" hx-swap="innerHTML"
+	class="flex min-w-0 gap-x-4">
 	if a.Media.Valid {
 	<img class="flex-none h-10 w-10 rounded bg-gray-50" src={ a.Media.String } alt="article image" />
 	} else {
