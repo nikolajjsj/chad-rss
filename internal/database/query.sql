@@ -1,23 +1,23 @@
 -- name: GetUserByID :one
-SELECT * FROM users WHERE id = ? LIMIT 1;
+SELECT * FROM users WHERE id = $1 LIMIT 1;
 
 -- name: GetUserByUsername :one
-SELECT * FROM users WHERE username = ? LIMIT 1;
+SELECT * FROM users WHERE username = $1 LIMIT 1;
 
 -- name: CreateUser :one
 INSERT INTO users (username, password) VALUES (
-  ?, ?
+  $1, $2
 ) RETURNING *;
 
 -- name: UpdateUser :exec
 UPDATE users
-SET username = ?, password = ?
-WHERE id = ?
+SET username = $1, password = $2
+WHERE id = $3
 RETURNING *;
 
 -- name: DeleteUser :exec
 DELETE FROM users
-WHERE id = ?;
+WHERE id = $1;
 
 -- name: FeedsCount :one
 SELECT COUNT(*) FROM feeds;
@@ -37,10 +37,10 @@ JOIN
 JOIN 
     feeds f ON uf.feed_id = f.id
 WHERE 
-    u.id = ?
+    u.id = $1
 ORDER BY
     f.title
-LIMIT ? OFFSET ?;
+LIMIT $2 OFFSET $3;
 
 -- name: GetAllFeeds :many
 SELECT 
@@ -66,22 +66,23 @@ JOIN
 JOIN
     feeds f ON uf.feed_id = f.id
 WHERE
-    u.id = ? AND f.nid = ?
+    u.id = $1 AND f.nid = $2
 LIMIT 1;
 
 -- name: CreateFeed :one
-INSERT OR IGNORE INTO feeds (nid, url, title, summary, authors, image) VALUES (
-    ?, ?, ?, ?, ?, ?
-) RETURNING *;
+INSERT INTO feeds (nid, url, title, summary, authors, image) 
+VALUES ($1, $2, $3, $4, $5, $6) 
+  ON CONFLICT DO NOTHING 
+RETURNING *;
 
 -- name: AddFeedToUser :exec
-INSERT OR IGNORE INTO user_feed (user_id, feed_id) VALUES (
-    ?, ?
-);
+INSERT INTO user_feed (user_id, feed_id) 
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING;
 
 -- name: RemoveFeedFromUser :exec
 DELETE FROM user_feed
-WHERE user_id = ? AND feed_id = ?;
+WHERE user_id = $1 AND feed_id = $2;
 
 -- name: GetUserFeedArticles :many
 SELECT 
@@ -102,15 +103,16 @@ JOIN
 JOIN    
     articles a ON f.id = a.feed_id
 WHERE
-    u.id = ? AND f.nid = ?
+    u.id = $1 AND f.nid = $2
 ORDER BY
     a.published_at DESC
-LIMIT ? OFFSET ?;
+LIMIT $3 OFFSET $4;
 
 -- name: CreateFeedArticles :many
-INSERT OR IGNORE INTO articles (rss_id, nid, url, title, summary, content, authors, media, published_at, feed_id) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-) RETURNING *;
+INSERT INTO articles (rss_id, nid, url, title, summary, content, authors, media, published_at, feed_id) 
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+  ON CONFLICT DO NOTHING
+RETURNING *;
 
 -- name: GetArticle :one
 SELECT 
@@ -131,5 +133,5 @@ JOIN
 JOIN
     articles a ON f.id = a.feed_id
 WHERE
-    u.id = ? AND a.nid = ?
+    u.id = $1 AND a.nid = $2
 LIMIT 1;

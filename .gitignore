@@ -29,11 +29,6 @@ tmp/
 main
 *templ.go
 
-# MacOS
+# OS X generated file
 .DS_Store
 
-# Generated files
-output.css
-
-# sqlite database
-*.db

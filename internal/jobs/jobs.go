@@ -1,19 +1,17 @@
 package jobs
 
 import (
+	"chad/internal/database"
+	"chad/internal/database/query"
+	"chad/internal/utils"
 	"context"
 	"database/sql"
 	"log"
 	"strings"
 	"time"
 
-	database "chad-rss/internal/database"
-	query "chad-rss/internal/database/sqlc"
-
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/mmcdole/gofeed"
-
-	"chad-rss/internal/utils"
 )
 
 type Jobs struct {
@@ -90,7 +88,7 @@ func (s *Jobs) processor(ch chan query.GetAllFeedsRow) {
 			if _, err = s.db.Query().CreateFeedArticles(context.Background(), query.CreateFeedArticlesParams{
 				Nid:         nid,
 				RssID:       item.GUID,
-				FeedID:      feed.ID,
+				FeedID:      sql.NullInt32{Int32: int32(feed.ID), Valid: true},
 				Url:         item.Link,
 				Title:       item.Title,
 				Summary:     sql.NullString{String: item.Description, Valid: item.Description != ""},

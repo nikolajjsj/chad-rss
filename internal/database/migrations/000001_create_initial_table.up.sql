@@ -1,5 +1,5 @@
 CREATE TABLE users (
-  id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   username text NOT NULL UNIQUE,
   password text NOT NULL,
 
@@ -8,7 +8,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE feeds (
-  id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   nid text NOT NULL UNIQUE,
   url text NOT NULL UNIQUE,
   title text NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE feeds (
 );
 
 CREATE TABLE articles (
-  id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   nid text NOT NULL UNIQUE,
   rss_id text NOT NULL UNIQUE,
   url text NOT NULL,
@@ -32,11 +32,8 @@ CREATE TABLE articles (
   media text,
   published_at TIMESTAMP,
 
-  feed_id INTEGER NOT NULL,
+  feed_id INTEGER REFERENCES feeds(id),
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY(feed_id) REFERENCES feeds(id)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
