@@ -1,8 +1,6 @@
 package server
 
 import (
-	query "chad/internal/database/query"
-	"context"
 	"database/sql"
 	"encoding/json"
 	"log"
@@ -18,7 +16,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	// "github.com/go-shiori/go-readability"
 	// "github.com/mmcdole/gofeed"
-	// "golang.org/x/crypto/bcrypt"
 )
 
 var tokenAuth *jwtauth.JWTAuth
@@ -31,8 +28,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	// r.Use(jwtauth.Verifier(tokenAuth))
-	// r.Use(Authenticator(tokenAuth))
+	r.Use(jwtauth.Verifier(tokenAuth))
+	r.Use(Authenticator(tokenAuth))
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
@@ -48,13 +45,13 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/signin", s.signin)
-			r.Post("signup", s.signup)
+			r.Post("/signup", s.signup)
 		})
 	})
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
-		// r.Use(StrictAuthenticator(tokenAuth))
+		r.Use(StrictAuthenticator(tokenAuth))
 		//
 		// r.Get("/feeds/sidebar", s.FeedsSidebarHandler)
 		//
@@ -74,7 +71,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 }
 
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
-	jsonResp, _ := json.Marshal(s.db.Health())
+	jsonResp, _ := json.Marshal("OK")
 	_, _ = w.Write(jsonResp)
 }
 
@@ -84,24 +81,31 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		log.Println("Parse form error: ", err)
 		return
 	}
-	username := r.FormValue("Username")
-	password := r.FormValue("Password")
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 8)
+	var creds Credentials
+	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		log.Println("Decode JSON error: ", err)
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(creds.Password), 8)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Println("Hash password error: ", err)
 		return
 	}
 
-	if _, err = s.db.Query().CreateUser(context.Background(), query.CreateUserParams{Username: username, Password: string(hashedPassword)}); err != nil {
+	user, err := s.db.CreateUser(creds.Username, string(hashedPassword))
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Println("Create user in DB error:", err)
 		return
 	}
 
 	_, tokenString, err := tokenAuth.Encode(map[string]interface{}{
-		"username":      username,
+		"id":            user.ID,
+		"username":      creds.Username,
 		"refresh_token": uuid.New().String(),
 	})
 	if err != nil {
@@ -117,7 +121,12 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 	})
 
-	w.Header().Add("HX-Redirect", "/")
+	response, err := json.Marshal(tokenString)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	_, _ = w.Write(response)
 }
 
 func (s *Server) signin(w http.ResponseWriter, r *http.Request) {
@@ -125,10 +134,15 @@ func (s *Server) signin(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	username := r.FormValue("Username")
-	password := r.FormValue("Password")
 
-	user, err := s.db.Query().GetUserByUsername(context.Background(), username)
+	var creds Credentials
+	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		log.Println("Decode JSON error: ", err)
+		return
+	}
+
+	user, err := s.db.GetUserByUsername(creds.Username)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -140,7 +154,7 @@ func (s *Server) signin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Compare the stored hashed password, with the hashed version of the password that was received
-	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(creds.Password)); err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -163,5 +177,10 @@ func (s *Server) signin(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 	})
 
-	w.Header().Add("HX-Redirect", "/")
+	response, err := json.Marshal(tokenString)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	_, _ = w.Write(response)
 }
