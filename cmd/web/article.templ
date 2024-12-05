@@ -1,0 +1,51 @@
+package web
+
+import (
+query "chad-rss/internal/database/sqlc"
+"fmt"
+)
+
+templ Article(article query.GetArticleRow) {
+@articleHeader(article)
+<div class="border-t border-gray-200 mt-4 mb-8"></div>
+<div class="flex flex-col mx-auto gap-8 max-w-prose">
+	<div id="article-content">
+		if article.Content.Valid {
+		@templ.Raw(article.Content.String)
+		} else if article.Summary.Valid {
+		@templ.Raw(article.Summary.String)
+		} else {
+		<p class="text-gray-500">
+			No content available
+		</p>
+		}
+	</div>
+</div>
+}
+
+templ articleHeader(a query.GetArticleRow) {
+<div class="flex min-w-0 justify-between items-start align-top py-5 gap-4">
+	<p class="text-left text-2xl font-bold tracking-wide leading-6 text-gray-900">{ a.Title }</p>
+	@articleActions(a)
+</div>
+}
+
+templ articleActions(a query.GetArticleRow) {
+<div class="flex gap-2">
+	<span class="isolate inline-flex rounded-md shadow-sm">
+		<button type="button" hx-target="#article-content" hx-get={ fmt.Sprintf("/articles/%s/content", a.Nid) }
+			class="relative inline-flex items-center rounded-l-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-10">
+			RSS
+		</button>
+		<button type="button" hx-target="#article-content" hx-get={ fmt.Sprintf("/articles/%s/content?content=extracted",
+			a.Nid) }
+			class="relative -ml-px inline-flex items-center bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-10">
+			Extract
+		</button>
+		<button type="button"
+			class="relative -ml-px inline-flex items-center rounded-r-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-10">
+			Web
+		</button>
+	</span>
+</div>
+}

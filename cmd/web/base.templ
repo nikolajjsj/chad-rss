@@ -1,0 +1,21 @@
+package web
+
+templ Base(title string) {
+<!DOCTYPE html>
+<html class="h-full bg-white" lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<title>{ title }</title>
+	<link href="/assets/css/output.css" rel="stylesheet" />
+	<script src="/assets/js/htmx.min.js"></script>
+	<script defer src="/assets/js/alpinejs.min.js"></script>
+</head>
+
+<body class="h-full">
+	{ children... }
+	<div id="modal-container"></div>
+</body>
+
+</html>
+}
