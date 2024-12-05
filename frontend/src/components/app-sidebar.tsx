@@ -13,6 +13,14 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { Link } from "react-router-dom"
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "./ui/drawer"
+import { Button } from "./ui/button"
+import { z } from "zod"
+import { Form, useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form"
+import { Input } from "./ui/input"
 
 export function AppSidebar() {
   return (
@@ -24,10 +32,10 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <a href="#">
+                  <Link to="/">
                     <Home />
                     <span>Home</span>
-                  </a>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -35,10 +43,11 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel asChild>Feeds</SidebarGroupLabel>
+          <SidebarGroupLabel>
+            Feeds
+          </SidebarGroupLabel>
           <SidebarGroupAction title="Add Feed">
-            <Plus />
-            <span className="sr-only">Add Feed</span>
+            <CreateFeedDrawer />
           </SidebarGroupAction>
           <SidebarGroupContent />
         </SidebarGroup>
@@ -50,10 +59,10 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <a href="#">
+                  <Link to="/settings">
                     <Settings />
                     <span>Settings</span>
-                  </a>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -63,4 +72,62 @@ export function AppSidebar() {
       <SidebarRail />
     </Sidebar>
   )
+}
+
+
+const createFeedSchema = z.object({
+  url: z.string().url(),
+})
+export const CreateFeedDrawer = () => {
+  const form = useForm<z.infer<typeof createFeedSchema>>({
+    resolver: zodResolver(createFeedSchema),
+    defaultValues: {
+      url: "https://",
+    },
+  });
+
+  const onSubmit = (values: z.infer<typeof createFeedSchema>) => {
+    // Do something with the form values.
+    // ✅ This will be type-safe and validated.
+    console.log(values)
+  }
+
+  return (
+    <Drawer>
+      <DrawerTrigger asChild>
+        <Plus />
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>Add Feed</DrawerTitle>
+        </DrawerHeader>
+
+        <Form>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <FormField
+              control={form.control}
+              name="url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://www.theverge.com/rss/index.xml" type="url" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button type="submit" className="w-full">Add Feed</Button>
+          </form>
+        </Form>
+
+        <DrawerFooter>
+          <DrawerClose asChild>
+            <Button type="button" variant="outline">Cancel</Button>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
 }
