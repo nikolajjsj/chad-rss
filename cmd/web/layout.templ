@@ -1,9 +1,0 @@
-package web
-
-templ Layout(title string, aside templ.Component) {
-@Base(title) {
-@SidebarTwoColumnLayout(SiderbarTwoColumnLayoutProps{Aside: aside}) {
-{ children... }
-}
-}
-}
